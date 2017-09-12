@@ -1,0 +1,30 @@
+AFM_plot
+========
+
+Having the spectroscopies of a AFM in a set of directories called
+'grid_point_X' containing all the POSCAR.nn, CONTCAR,nn and OUTCAR,nn files, 
+recursively gathers the information to generate the plots EvsZ, FvsZ, Delta_W
+vs Z and generates the geoemetry .xyz file of every spectroscopy, ready to be
+opened with Jmol (as coment line is  a Jmols script).
+
+INPUT: inp.afm containing any of the input keywords
+OUTPUT: 
+
+Keywords for the inp.afm file:
+------------------------------
+
+Mandatory keywords
+..................
+- grid_points <int> <int> <int> ... ::  Number of the grid points to be plotted
+
+Optional keywords
+.................
+- smoothing <float> :: Spline smoothinf factor
+- z_min <float> :: minimum z value to do the E fitting
+- z_max <float> :: maximum z value to do the E fitting
+- datfile <str> :: Data filename wich includes E vs Z data values OUTCAR.X names
+- tip_name <str> :: Name of the tip
+- add_labels <bool> ::  If to add labels to the graphs 
+- label_interval <int> :: Add label at every 'label_interval' step
+- prefix <str> ::  Prefix for every output plot
+- show_graphs <bool> :: If to show the graphs before saving them 
