@@ -19,12 +19,18 @@ Mandatory keywords
 
 Optional keywords
 .................
-- smoothing <float> :: Spline smoothinf factor
-- z_min <float> :: minimum z value to do the E fitting
-- z_max <float> :: maximum z value to do the E fitting
-- datfile <str> :: Data filename wich includes E vs Z data values OUTCAR.X names
-- tip_name <str> :: Name of the tip
-- add_labels <bool> ::  If to add labels to the graphs 
-- label_interval <int> :: Add label at every 'label_interval' step
-- prefix <str> ::  Prefix for every output plot
-- show_graphs <bool> :: If to show the graphs before saving them 
+- smoothing <float> (default = 0.0001) :: Spline smoothinf factor
+- z_min <float> (default = 10 ) :: minimum z value to do the E fitting
+- z_max <float> (default = 100) :: maximum z value to do the E fitting
+- omega_exp <float> (default = -5) :: Delta omega used to generate the whole image
+- datfile <str> (default = 'Evsz.dat') :: Data filename wich includes E vs Z data values OUTCAR.X names
+- tip_name <str> (default = 'AFM tip') :: Name of the tip
+- add_labels <bool> (default = False)  ::  If to add labels to the graphs 
+- label_interval <int> (default = 5)   :: Add label every 'label_interval' steps
+- prefix <str> (default = 'wip') ::  Prefix for every output plot
+- show_graphs <bool>   (default = True):: If to show the graphs of each grid point before saving them 
+- save_graphs <bool>   (default = True):: If to save the graphs of each grid point
+- show_afmimage <bool> (default = True)::  If to show the final AFM image before saving it 
+- save_afmimage <bool> (default = True)::  If to save the final AFM image
+
+NOTE: Booleans can be given as [(True, yes, 1...) | (False, no, 0...)]
