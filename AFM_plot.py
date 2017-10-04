@@ -1,4 +1,4 @@
-#!/usr/bin/ipython
+#!/localhome/david/scripts/vasp/AFM/AFM_plot/bin/ipython 
 
 # Different tests of environments
 #--------------------------------
@@ -23,8 +23,10 @@ from matplotlib import rc
 from scipy.optimize import curve_fit
 from scipy.interpolate import UnivariateSpline
 from scipy.integrate import  simps
-from matplotlib.widgets import Button, Slider
+from matplotlib.widgets import Button, Slider, CheckButtons
 from matplotlib.colors import Colormap
+
+from timeit import  default_timer as timer
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -46,21 +48,36 @@ prefix = "wip"
 
 # Experimental parameters
 #------------------------
-A = 1        # Amplitud of the oscillation of the experimental cantiliever (in Ang)
+A = 1.0        # Amplitud of the oscillation of the experimental cantiliever (in Ang)
 # w_0 = 23000   # Natural resonance frequency of the cantilever (in Hz) (f in reality)
-w_0 = 23000/(2*np.pi)   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
+#w_0 = 25000/(2*np.pi)   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
+w_0 = 25000   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
 #w_0 = 150   # Natural resonance frequency of the cantilever (in Hz)
 #k = 40      # Spring constant (N/m)
-k = 40*0.0624      # Spring constant (eV/ang**2)
+# k = 40*0.0624      # Spring constant (eV/ang**2)
+k = 1800*0.0624      # Spring constant (eV/ang**2)
 #k = 4        # Spring constant (nN/Ang)
 #k = 4*0.0624        # Spring constant (eV/Ang**2)
 omega_exp = -5
 
+int_steps = 1001       # Integration steps
+#int_steps = 101         # Integration steps
+#int_steps = 5         # Integration steps
+phi = np.linspace(0,2*np.pi,int_steps) # Angle
+
 show_graphs = True
 save_graphs = True
+only_forces = True
 show_afmimage = True
 save_afmimage = True
+save_forces = False
+do_full_image = False
 autosave = True
+force_initial = False
+#overlapsurface = True
+overlapsurface = False
+debugging = False
+#debugging = True
 
 #      GP  Description
 #      1   On As atom 1sst layer
@@ -84,7 +101,7 @@ grid = {1: (0.00000, 0.00000),
         7: (0.00000, 3.38340),
         8: (2.02290, 3.38340),
         9: (0.00000, 4.51120),
-        10: (2.02290, 4.51120)}
+       10: (2.02290, 4.51120)}
 
 afmimage = {1: [], # Object containing (x,y) grid points, [Z_i] and the [ delta_w ] points 
          2: [],
@@ -127,7 +144,19 @@ nygp = 5             # Number of original Y Grid points
 xrep = 6             # Number of repetition of X Grid points
 yrep = 3             # Number of repetition of Y Grid points
 
-
+# List of colors to plot the curve of each grid point
+color = {
+    1: '#e34545',
+    2: '#de27e5',
+    3: '#5d4fe5',
+    4: '#4fb9e5',
+    5: '#10be3d',
+    6: '#3f5d36',
+    7: '#7d4804',
+    8: '#ff783c',
+    9: '#c70707',
+   10: '#560606'
+}
 def string_to_bool (string):
     return bool(strtobool(str(string)))
 
@@ -725,12 +754,24 @@ def read_input(filename='inp.afm'):
         elif 'show_graphs' in line:
             global show_graphs
             show_graphs = string_to_bool(line.split()[1])
+        elif 'save_forces' in line:
+            global save_forces
+            save_forces = string_to_bool(line.split()[1])
+        elif 'only_forces' in line:
+            global only_forces
+            only_forces = string_to_bool(line.split()[1])
+        elif 'do_full_image' in line:
+            global do_full_image
+            do_full_image = string_to_bool(line.split()[1])
         elif 'show_afmimage' in line:
             global show_afmimage
             show_afmimage = string_to_bool(line.split()[1])
         elif 'autosave' in line:
             global autosave
             autosave = string_to_bool(line.split()[1])
+        elif 'force_initial' in line:
+            global force_initial
+            force_initial = string_to_bool(line.split()[1])
         else:
             print ("Warning! Keyword "+ line + " not recognized")
 
@@ -768,17 +809,21 @@ def get_Z_at_delta_w (omega,h, curve):
         return
     return root
 
-
+if debugging: start = timer()
 # Get atom numbers to use in order to measure Z
 atom_tip  = get_atom_index ("tip")
 atom_surf = get_atom_index ("surface")
 # atom_tip  = 204
 # atom_surf = 108
 
+# Overwrite default parameters with input files
 if len(sys.argv) > 1:
-    infile = sys.argv[1]
+    infile = sys.argv[1:]
+    for f in infile: 
+        read_input (f)
 else:
     infile = 'inp.afm'
+    read_input (infile)
 
 # Get the list of directories (grid points)
 dir_list= [d for d in os.listdir('.') if re.match(r'grid_point_[0-9]+', d)]
@@ -794,8 +839,6 @@ using_dat_file = False
 add_labels = False
 label_interval = 5
 
-# Overwrite default parameters with an input file
-read_input (infile)
 
 # Save initial values for reuse at the begining of each grid point
 z_min_init = z_min
@@ -811,6 +854,10 @@ if autosave:  # Autosave contains Grid Point specific fitting values
         pass
     of_save = open(prefix+"_autosave.wip", 'w')
 
+if debugging:
+    end = timer(); etime = end - start
+    print ('Init: ', etime)
+
 for directory in dir_list:
 
     energies = []
@@ -822,8 +869,12 @@ for directory in dir_list:
     z_max = z_max_init
     spl_smoothing = spl_smooth_init
 
+    if debugging: start = timer()
     os.chdir(directory)
     grid_point = get_grid_point()
+    if debugging:
+        end = timer(); etime = end - start
+        print ('get grid point: ', etime)
 
     # Print only the desired grid points
     if not int(grid_point) in plot_grid_points:
@@ -833,29 +884,39 @@ for directory in dir_list:
         print ("Plotting grid point: "+str(grid_point))
         print ("-----------------------")
 
+    dirlist = os.listdir('.') 
+
     # Get the data in the dir and skip if nothing found
-    if not outdatfile in os.listdir('.'):
-        outcar_files = [f for f in os.listdir('.') if re.match(r'OUTCAR.[0-9]+', f)]
+    #if not outdatfile in os.listdir('.'):
+    if not outdatfile in  dirlist:
+        #outcar_files = [f for f in os.listdir('.') if re.match(r'OUTCAR.[0-9]+', f)]
+        outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
         if not outcar_files:
             # print ("No OUTCAR files found in grid point " + grid_point)
             print ("WARNING: No data available in grid point: " + grid_point)
             os.chdir("..")
             continue
 
+    if debugging: start = timer()
     # Look for E vs Z dat file in the current dir
-    if outdatfile in os.listdir('.'):
+    #if outdatfile in os.listdir('.'):
+    if outdatfile in dirlist:
         print (outdatfile + " found in " + directory )
         data=np.genfromtxt(outdatfile, dtype=None, names=True)
         distances = data['Distance']
         energies  = data['Energy']
         outcar_files = data['Filename']
         using_dat_file=True
+        if debugging: 
+            end = timer();  etime = end - start
+            print ('Data find found: ', etime)
     # If not E vs Z data file found,then parse the OUTCARs
     else:
         # Sort the list in a human readable style
         outcar_files.sort(key=natural_keys)
         # Get the list of files
-        poscar_files = [f for f in os.listdir('.') if re.match(r'POSCAR.[0-9]+', f)]
+        #poscar_files = [f for f in os.listdir('.') if re.match(r'POSCAR.[0-9]+', f)]
+        poscar_files = [f for f in dirlist if re.match(r'POSCAR.[0-9]+', f)]
         # Sort the list in a human readable style
         poscar_files.sort(key=natural_keys)
 
@@ -893,16 +954,26 @@ for directory in dir_list:
         e_file.write ("Distance      Energy    Filename\n")
         for i in range(len(distances)):
             e_file.write("%g\t%g\t%s\n" % (distances[i], energies[i], outcar_files[i]))
+        if debugging:
+            end = timer(); etime = end - start
+            print ('Parsing OUTCARs: ', etime)
+        e_file.close()
 
     # Override initial parameters for grid point specific parameters if requested
-    if if_save: read_autosave(if_save, grid_point)
+    if if_save and not force_initial: read_autosave(if_save, grid_point)
     title=tip_name + "Grid point: "+ str(grid_point)
+    print ("ZMIN: ", z_min)
 
+    if debugging: start = timer()
     # Displacing energies up to 0
     max_ener = max(energies)
     for i in range(0,len(energies)):
         energies[i] = energies[i] - max_ener
+    if debugging:
+        end = timer(); etime = end - start
+        print ('Displacing Energies: ', etime)
 
+    if debugging: start = timer()
     # Sorting the points from shorter to longer distances
     if distances[0] > distances[-1]:
         distances = distances[::-1]
@@ -910,6 +981,9 @@ for directory in dir_list:
         outcar_files=outcar_files[::-1]
         if not using_dat_file:
             poscar_files=poscar_files[::-1]
+    if debugging:
+        end = timer(); etime = end - start
+        print ('Reordering points: ', etime)
 
     dist_interval = []
     ener_interval = []
@@ -918,32 +992,41 @@ for directory in dir_list:
     e_fit_spl = None
     f_interp = None
 
+    if debugging: start = timer()
     # Select points between height (z) interval
     set_interval()
+    if debugging:
+        end = timer(); etime = end - start
+        print ('Seting interval: ', etime)
 
+    if debugging: start = timer()
     # Fit the E(z) to a spline and compute its first derivative
     # Note that force will be a spline
     force_method="spline"
     calc_force (dist_interval, ener_interval, force_method)
+    if debugging:
+        end = timer(); etime = end - start
+        print ('Calculating Forces: ', etime)
 
 
-# # ---------------------------------------------------------
-# # KKK TEMP: WRITING FORCES
-#     print_forces()
-# # ---------------------------------------------------------
+#  # ---------------------------------------------------------
+#  # KKK TEMP: WRITING FORCES
+#      print_forces()
+#  # ---------------------------------------------------------
 
 
     # Transform Force(z) to Delta Frequency(h)
     #-----------------------------------------
     # NOTE! Check frequency if it is 2pi/T or just 1/T 
-    int_steps = 1001       # Integration steps
-    #int_steps = 101         # Integration steps
-    phi = np.linspace(0,2*np.pi,int_steps) # Angle
-
     w = []  # w ==> (w_exp/w_0)**2
     h = []  # h ==>  z +- A : range [min(z)+A , max(z)-A]
     delta_w = []
-    integrate_forces()
+    if debugging: start = timer()
+    if not only_forces:
+        integrate_forces()
+    if debugging:
+        end = timer(); etime = end - start
+        print ('Intgrating Forces: ', etime)
 
     # GENERATING  GRAPHS
     #-------------------
@@ -974,7 +1057,7 @@ for directory in dir_list:
     #ax3.legend(loc='best')
 
     #plt.savefig(plot_name, bbox_inches="tight")
-    if save_graphs: plt.savefig(plot_name, dpi=1200,  bbox_inches="tight")
+    if save_graphs: plt.savefig(plot_name, bbox_inches="tight")
 
     # INTERACTIVE PLOTTING
     #---------------------
@@ -1009,24 +1092,24 @@ for directory in dir_list:
         #print spl_smoothing
 
     #fig.subplots_adjust(bottom=0.2, left=0.1)
+    if show_graphs:
+        #Placing the sliders
+        slider_z_ax1 = plt.axes([0.50,0.90,0.4, 0.02])
+        slider_z_ax2 = plt.axes([0.50,0.85,0.4, 0.02])
+        slider_z_ax3 = plt.axes([0.50,0.80,0.4, 0.02])
 
-    #Placing the sliders
-    slider_z_ax1 = plt.axes([0.50,0.90,0.4, 0.02])
-    slider_z_ax2 = plt.axes([0.50,0.85,0.4, 0.02])
-    slider_z_ax3 = plt.axes([0.50,0.80,0.4, 0.02])
+        # Slider: Z_min
+        slider_zmin = Slider (slider_z_ax1, "Z min", distances[0],distances[-4], valinit=z_min, color='#AAAAAA')
+        slider_zmin.on_changed(on_change_z_min)
 
-    # Slider: Z_min
-    slider_zmin = Slider (slider_z_ax1, "Z min", distances[0],distances[-4], valinit=z_min, color='#AAAAAA')
-    slider_zmin.on_changed(on_change_z_min)
+        # Slider: Z_max
+        slider_zmax = Slider (slider_z_ax2, "Z max", distances[4],distances[-1]+1, valinit=z_max, color='#AAAAAA')
+        slider_zmax.on_changed(on_change_z_max)
 
-    # Slider: Z_max
-    slider_zmax = Slider (slider_z_ax2, "Z max", distances[4],distances[-1]+1, valinit=z_max, color='#AAAAAA')
-    slider_zmax.on_changed(on_change_z_max)
-
-    # Slider: Spline smoothing
-    #slider_smooth = Slider (slider_z_ax3, "Smooth", 0.000001,0.0001, valinit=spl_smoothing, color='#AAAAAA')
-    slider_smooth = Slider (slider_z_ax3, "Smooth", 0.0,0.0001, valinit=spl_smoothing, color='#AAAAAA')
-    slider_smooth.on_changed(on_change_splsmooth)
+        # Slider: Spline smoothing
+        #slider_smooth = Slider (slider_z_ax3, "Smooth", 0.000001,0.0001, valinit=spl_smoothing, color='#AAAAAA')
+        slider_smooth = Slider (slider_z_ax3, "Smooth", 0.0,0.0001, valinit=spl_smoothing, color='#AAAAAA')
+        slider_smooth.on_changed(on_change_splsmooth)
 
     fig1 = plt.gcf()
     if show_graphs: plt.show()
@@ -1104,9 +1187,91 @@ def plot_AFM_image ():
     #ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='gaussian')
     #ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='lanczos')
     ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='bicubic')
+    if overlapsurface: overlap_surface()
     #ax2.imshow(ZT, aspect='auto', origin='lower',  extent = ( x.min(), x.max(), y.min(), y.max()))
     # fig.colorbar(im)
     # if show_afmimage: plt.show()
+
+
+def plot_w_and_F_curves ():
+    global lines_w
+    global lines_f
+    global only_forces
+
+    ax1.cla()
+    ax3.cla()
+
+    ax3.set_xlabel (r'z ($\AA$)')
+    ax3.set_ylabel (r'Force(ev/$\AA$)')
+
+    # Plot all the Delta omega and force curves togheter
+    for gp in range (1,11):
+        label = "GP " + str(gp)
+        if not only_forces:
+            ax1.set_xlabel (r'z ($\AA$)')
+            ax1.set_ylabel (r'$\Delta \omega$')
+            x = afmimage[gp][0][1]
+            y = afmimage[gp][0][2]
+            lines_w.append(ax1.plot(x, y, '-', color=color[gp], label=label, lw=1.3, visible=True))
+
+        x = afmforces[gp][0][1]
+        y = afmforces[gp][0][2]
+        lines_f.append(ax3.plot(x, y, '-', color=color[gp], label=label, lw=1.3, visible=True))
+
+    ax3.legend(loc='lower right', ncol=2, numpoints=5)
+    plt.draw()
+
+def plot_w_curves ():
+    global lines_w
+
+    ax1.cla()
+
+    ax1.set_xlabel (r'z ($\AA$)')
+    ax1.set_ylabel (r'$\Delta \omega$')
+
+    # Plot all the Delta omega and force curves togheter
+    for gp in range (1,11):
+        label = "GP " + str(gp)
+        x = afmimage[gp][0][1]
+        y = afmimage[gp][0][2]
+        lines_w.append(ax1.plot(x, y, '-', color=color[gp], label=label, lw=1.3, visible=True))
+    # plt.draw()  #> Will be drawn in plot_F_curves
+
+def plot_F_curves ():
+    global lines_f
+    global only_forces
+
+    ax3.cla()
+
+    ax3.set_xlabel (r'z ($\AA$)')
+    ax3.set_ylabel (r'Force(ev/$\AA$)')
+
+    # Plot all the Delta omega and force curves togheter
+    for gp in range (1,11):
+        label = "GP " + str(gp)
+        x = afmforces[gp][0][1]
+        y = afmforces[gp][0][2]
+        lines_f.append(ax3.plot(x, y, '-', color=color[gp], label=label, lw=1.3, visible=True))
+
+    ax3.legend(loc='lower right', ncol=2, numpoints=5)
+    plt.draw()
+
+
+def save_F_curves ():
+
+    # Save each grid point force curves 
+    for gp in range (1,11):
+        label = "GP_" + str(gp)
+        force_file = open("forces_" + label + ".dat", 'w')
+        force_file.write("# Z (Ang) \t Force(ev/Ang)\n")
+        x = afmforces[gp][0][1]
+        y = afmforces[gp][0][2]
+        for i in range(len(x)):
+            force_file.write( str(x[i]) + "\t" + str(y[i]) + "\n")
+        force_file.close()
+
+    ax3.legend(loc='lower right', ncol=2, numpoints=5)
+    plt.draw()
 
 def on_change_w (val):
     global omega_exp
@@ -1117,51 +1282,65 @@ def on_change_w (val):
     plot_AFM_image()
     plt.draw()
 
-# Plot all the Delta omega curves togheter
+def overlap_surface ():
+    Ga='#D5B4B4'
+    As='#BC81E2'
+    alpha=0.6
+    for i in range(1,11):
+        if i == 1:
+            ax2.plot(grid[i][0],grid[i][1], 'o', color=As, alpha=alpha, ms=20)
+            ax2.plot(grid[i][0]+2*x_interval, grid[i][1], 'o', color=As, alpha=alpha, ms=20)
+            ax2.plot(grid[i][0],grid[i][1]+5*y_interval, 'o', color=As,  alpha=alpha, ms=20)
+            ax2.plot(grid[i][0]+2*x_interval,grid[i][1]+5*y_interval, 'o', color=As, alpha=alpha, ms=20)
+        if i == 10:
+            ax2.plot(grid[i][0],grid[i][1], 'o', color=Ga, alpha=alpha, ms=20)
+        if i == 3:
+            ax2.plot(grid[i][0],grid[i][1], 'o', color=Ga, alpha=alpha, ms=10)
+            ax2.plot(grid[i][0]+2*x_interval,grid[i][1], 'o', color=Ga, alpha=alpha, ms=10)
+        if i == 6:
+            ax2.plot(grid[i][0],grid[i][1], 'o', color=As, alpha=alpha, ms=10)
+
+lines_w = []
+lines_f = []
 fig = plt.figure()
-# Plot of all the curves of delta w vs Z
-ax1  = fig.add_subplot(221)
 # Plot of full image at a omega_exp
-ax2  = fig.add_subplot(122)
+if do_full_image: ax2  = fig.add_subplot(122)
 
 # Plot all force curves for each Grid Point
-ax3  = fig.add_subplot(223)
+if only_forces:
+    # Only set the axes for the force graph
+    ax3  = fig.add_subplot(111)
+else:
+    # Plot of all the curves of delta w and F vs Z 
+    ax1  = fig.add_subplot(221)
+    ax3  = fig.add_subplot(223)
 
-color = [ 
-    '#e34545',
-    '#de27e5',
-    '#5d4fe5',
-    '#4fb9e5',
-    '#10be3d',
-    '#3f5d36',
-    '#7d4804',
-    '#ff783c',
-    '#c70707',
-    '#560606'
-]
+if save_forces: save_F_curves()
 
-for gp in range (1,11):
-    x = afmimage[gp][0][1]
-    y = afmimage[gp][0][2]
-    label = "GP " + str(gp)
-    ax1.plot(x, y, '-', color=color[gp-1], label=label, lw=1.3)
-    x = afmforces[gp][0][1]
-    y = afmforces[gp][0][2]
-    ax3.plot(x, y, '-', color=color[gp-1], label=label, lw=1.3)
+# Build the check buttons
+# rax = plt.axes([0.1,0.9,0.2,0.2], aspect='equal')
+#rax = fig.axes([0.1,0.9,0.2,0.2], aspect='equal')
+#labels=('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')
+#check=CheckButtons(rax,labels,(True,True,True,True,True,True,True,True,True,True))
+if only_forces:
+    plot_F_curves()
+else:
+    plot_w_curves()
+    plot_F_curves()
 
-# Slider: W
-slider_z_ax1 = plt.axes([0.60,0.90,0.3, 0.02])
-slider_w = Slider (slider_z_ax1, r"$\Delta \omega$", -100, -1, valinit=omega_exp, color='#AAAAAA')
-slider_w.on_changed(on_change_w)
+if do_full_image and not only_forces:
+    # Slider: W
+    slider_z_ax1 = plt.axes([0.60,0.90,0.3, 0.02])
+    slider_w = Slider (slider_z_ax1, r"$\Delta \omega$", -100, -1, valinit=omega_exp, color='#AAAAAA')
+    slider_w.on_changed(on_change_w)
 
-create_AFM_image ()
-plot_AFM_image ()
+    create_AFM_image ()
+    plot_AFM_image ()
 
-ax3.legend(loc='lower right', ncol=2, numpoints=5)
 # Once plt.show() is called, a new blank figure is created, so plt.savefig () will be a blank figure after plt.show()
 # Get Current Figure in fig2 to save it whenever we want as plt.gcf()
 fig2 = plt.gcf()
-plt.show()
+if show_afmimage: plt.show()
 #plot_name = prefix+"_AFMImage"+".pdf"
 plot_name = prefix+"_AFMImage"+".svg"
 if save_afmimage: fig2.savefig(plot_name, bbox_inches="tight")
