@@ -5,4 +5,7 @@ checkIntegral.tar.gz
 checks/
 plot_force_curve.py
 show_retraction.sh
+AFM_plot/
+AFM_Forces/
+AFM_plot.py.bak
 
