@@ -1,0 +1,8 @@
+.*sw*
+Pipfile
+Pipfile.lock
+checkIntegral.tar.gz
+checks/
+plot_force_curve.py
+show_retraction.sh
+

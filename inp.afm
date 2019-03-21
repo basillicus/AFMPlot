@@ -1,0 +1,17 @@
+z_min 16
+smoothing 0.00001
+omega_exp -1
+
+grid_points 1 2 3 4 5 6 7 8 9 10
+grid_points 1
+
+show_graphs yes
+save_graphs yes
+
+show_afmimage yes
+save_afmimage yes
+
+only_forces yes
+do_full_image no
+
+save_forces yes
