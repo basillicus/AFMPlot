@@ -1,4 +1,4 @@
-#!/localhome/david/scripts/vasp/AFM/AFM_plot/bin/ipython 
+#!/usr/bin/ipython
 
 # Different tests of environments
 #--------------------------------
