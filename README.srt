@@ -43,6 +43,8 @@ Optional keywords
 
 - tip_name <str> (default = 'AFM tip') :: Name of the tip
 
+- tip_length <float> (default = 6.0 ) :: Distance between the apex and the most upper fixed tip atom
+
 - add_labels <bool> (default = False)  ::  If to add labels to the graphs 
 
 - label_interval <int> (default = 5)   :: Add label every 'label_interval' steps

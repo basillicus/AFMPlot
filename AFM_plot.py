@@ -48,36 +48,37 @@ prefix = "wip"
 
 # Experimental parameters
 #------------------------
-A = 1.0        # Amplitud of the oscillation of the experimental cantiliever (in Ang)
+A   = 1.0           # Amplitud of the oscillation of the experimental cantiliever (in Ang)
+w_0 = 25000         # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
+k   = 1800*0.0624   # Spring constant (eV/ang**2)
+omega_exp = -5
+
+tip_length = 6.0
+
 # w_0 = 23000   # Natural resonance frequency of the cantilever (in Hz) (f in reality)
-#w_0 = 25000/(2*np.pi)   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
-w_0 = 25000   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
+#w_0  = 25000/(2*np.pi)   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
 #w_0 = 150   # Natural resonance frequency of the cantilever (in Hz)
 #k = 40      # Spring constant (N/m)
 # k = 40*0.0624      # Spring constant (eV/ang**2)
-k = 1800*0.0624      # Spring constant (eV/ang**2)
 #k = 4        # Spring constant (nN/Ang)
 #k = 4*0.0624        # Spring constant (eV/Ang**2)
-omega_exp = -5
 
 int_steps = 1001       # Integration steps
-#int_steps = 101         # Integration steps
+#int_steps = 101       # Integration steps
 #int_steps = 5         # Integration steps
 phi = np.linspace(0,2*np.pi,int_steps) # Angle
 
-show_graphs = True
-save_graphs = True
-only_forces = True
-show_afmimage = True
-save_afmimage = True
-save_forces = False
-do_full_image = False
-autosave = True
-force_initial = False
-#overlapsurface = True
+show_graphs    = True
+save_graphs    = True
+only_forces    = True
+show_afmimage  = True
+save_afmimage  = True
+save_forces    = False
+do_full_image  = False
+autosave       = True
+force_initial  = False
 overlapsurface = False
-debugging = False
-#debugging = True
+debugging      = False
 
 #      GP  Description
 #      1   On As atom 1sst layer
@@ -137,8 +138,8 @@ imageAtW = {1: [], # Object containing the  (x,y) grid points and the Z value at
 afm_image = []
 
 # Used to repeat the AFM image
-x_interval = 2.02290 # Distance betwwen x grid points
-y_interval = 1.12780 # Distance betwwen x grid points
+x_interval = 2.02290 # Distance between x grid points
+y_interval = 1.12780 # Distance between x grid points
 nxgp = 2             # Number of original X Grid points
 nygp = 5             # Number of original Y Grid points
 xrep = 6             # Number of repetition of X Grid points
@@ -165,7 +166,7 @@ def get_atom_index (kind):
     """
     Returns the atom index with higher Z if kind == tip or atom index of the
     one with lowest Z if kind == surface
-    TODO: So far only returns the biggest and the lowest Z value regardless of the atom kind.
+    TODO: So far only returns the biggest and the lowest Z value regardless of the kind of atom
           - Can be improved by ignoring H in the index selection
     Reads the POSCAR (for VASP 5.x)
     """
@@ -190,7 +191,7 @@ def get_atom_index (kind):
         total_atoms = 0
         for i in  no_at_each_kind:
             total_atoms = total_atoms + int(i)
-        f.readline()
+        f.readline()     # Skip 'selective dynamics' line
         coord_type = f.readline()
 
         # If coordinates are in direct coordinates, transform to cartesians
@@ -237,13 +238,34 @@ def error_critical (msg = "Unknown critical error"):
 
 
 def calculate_distance (coordinates, at_1, at_2 ):
+#    ------  |        |--> z_tip    |
+#    \    /  |l_tip   |             |
+#     \  /   |        |             |
+#      \/    |        |             |
+#    |                | h           | z = (z_tip - z_surf) - l
+#    |                |             |     '------.-------'
+#  z |                |             |            h
+#    |                |             |
+#  __|______          |             |
+#  ///////// |l_surf  |
+#  ///////// |        |_,> z_surf
+
     for i in range (0, len(coordinates)):
         idx = coordinates[i][0]
         if idx == at_1:
             coord_at_1 = coordinates[i][1]
+            # KKKKK
+            print ("coord_at_1   ", coord_at_1)
         if idx == at_2:
             coord_at_2 = coordinates[i][1]
+            # KKKKK
+            print ("coord_at_2   ", coord_at_2)
     distance = abs(float(coord_at_1[2]) - float(coord_at_2[2]))
+    # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
+    # surface_length: surface dependent. Length of the surface in its relaxed geometry
+    # tip_length = 6.0       # Defined globally above
+    surface_length= 10.2 # TODO: Create an input keyword for this
+    distance = distance - tip_length - surface_length
     return distance
 
 
@@ -654,15 +676,15 @@ def integrate_forces():
         # f_int_sum=sum(f_sum)
         f  = -force_spl(hh + A*np.sin(phi))* np.sin(phi)
 
-        # KKKK Temp file to write out the forces and read in into fortran code
-        fla = open('fla.dat_'+str(hh), 'w')
-        fla.write('# xx    hh+Asin(phi)     f(h+Asin(phi))sin(phi)    phi  \n')
-        for i, fi in enumerate(f):
-            fla.write(str(xx[i]) + "\t" + str(hh + A*np.sin(phi[i])) + "\t" + str(fi) + "\t" + str(phi[i]) + '\n')
+        # # KKKK Temp file to write out the forces and read in into fortran code
+        # fla = open('fla.dat_'+str(hh), 'w')
+        # fla.write('# xx    hh+Asin(phi)     f(h+Asin(phi))sin(phi)    phi  \n')
+        # for i, fi in enumerate(f):
+        #     fla.write(str(xx[i]) + "\t" + str(hh + A*np.sin(phi[i])) + "\t" + str(fi) + "\t" + str(phi[i]) + '\n')
 
         f_int = simps(f,phi)
-        fla.write("# Integral: "  + str(f_int))
-        fla.close()
+        # fla.write("# Integral: "  + str(f_int))
+        # fla.close()
         function =1.0-1.0/(np.pi*k*A)*f_int
 
         w_vs_h += [(hh, function)]
@@ -719,6 +741,8 @@ def read_input(filename='inp.afm'):
     data  = f.readlines()
 
     for n,line in enumerate(data):
+        if line.startswith('#'):
+            continue
         if 'smoothing' in line:
             global spl_smoothing
             spl_smoothing = float(line.split()[1])
@@ -731,11 +755,15 @@ def read_input(filename='inp.afm'):
         elif 'omega_exp' in line:
             global omega_exp
             omega_exp = float(line.split()[1])
+        elif 'tip_length' in line:
+            global tip_length
+            tip_length = float(line.split()[1])
         elif 'datfile' in line:
             global outdatfile
             outdatfile = str(line.split()[1])
         elif 'tip_name' in line:
             global tip_name
+            # The tip_name will be up to the end of the line
             tip_name = line[9::]
         elif 'add_labels' in line:
             global add_labels
@@ -757,12 +785,18 @@ def read_input(filename='inp.afm'):
         elif 'save_forces' in line:
             global save_forces
             save_forces = string_to_bool(line.split()[1])
+        elif 'save_graphs' in line:
+            global save_graphs
+            save_graphs = string_to_bool(line.split()[1])
         elif 'only_forces' in line:
             global only_forces
             only_forces = string_to_bool(line.split()[1])
         elif 'do_full_image' in line:
             global do_full_image
             do_full_image = string_to_bool(line.split()[1])
+        elif 'save_afmimage' in line:
+            global save_afmimage
+            save_afmimage = string_to_bool(line.split()[1])
         elif 'show_afmimage' in line:
             global show_afmimage
             show_afmimage = string_to_bool(line.split()[1])
@@ -816,6 +850,16 @@ atom_surf = get_atom_index ("surface")
 # atom_tip  = 204
 # atom_surf = 108
 
+# Set default parameters
+# ----------------------
+z_min = 10.0
+z_max = 100.0
+spl_smoothing = 0.0005
+outdatfile = 'Evsz.dat'
+using_dat_file = False
+add_labels = False
+label_interval = 5
+
 # Overwrite default parameters with input files
 if len(sys.argv) > 1:
     infile = sys.argv[1:]
@@ -827,18 +871,6 @@ else:
 
 # Get the list of directories (grid points)
 dir_list= [d for d in os.listdir('.') if re.match(r'grid_point_[0-9]+', d)]
-
-# Set default parameters
-# ----------------------
-# General fitting and ploting parameters
-z_min = 10.0
-z_max = 100.0
-spl_smoothing = 0.0005
-outdatfile = 'Evsz.dat'
-using_dat_file = False
-add_labels = False
-label_interval = 5
-
 
 # Save initial values for reuse at the begining of each grid point
 z_min_init = z_min
@@ -884,22 +916,18 @@ for directory in dir_list:
         print ("Plotting grid point: "+str(grid_point))
         print ("-----------------------")
 
-    dirlist = os.listdir('.') 
 
     # Get the data in the dir and skip if nothing found
-    #if not outdatfile in os.listdir('.'):
+    dirlist = os.listdir('.') 
     if not outdatfile in  dirlist:
-        #outcar_files = [f for f in os.listdir('.') if re.match(r'OUTCAR.[0-9]+', f)]
         outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
         if not outcar_files:
-            # print ("No OUTCAR files found in grid point " + grid_point)
             print ("WARNING: No data available in grid point: " + grid_point)
             os.chdir("..")
             continue
 
     if debugging: start = timer()
     # Look for E vs Z dat file in the current dir
-    #if outdatfile in os.listdir('.'):
     if outdatfile in dirlist:
         print (outdatfile + " found in " + directory )
         data=np.genfromtxt(outdatfile, dtype=None, names=True)
@@ -915,7 +943,6 @@ for directory in dir_list:
         # Sort the list in a human readable style
         outcar_files.sort(key=natural_keys)
         # Get the list of files
-        #poscar_files = [f for f in os.listdir('.') if re.match(r'POSCAR.[0-9]+', f)]
         poscar_files = [f for f in dirlist if re.match(r'POSCAR.[0-9]+', f)]
         # Sort the list in a human readable style
         poscar_files.sort(key=natural_keys)
@@ -953,7 +980,7 @@ for directory in dir_list:
         e_file=open(outdatfile,'w')
         e_file.write ("Distance      Energy    Filename\n")
         for i in range(len(distances)):
-            e_file.write("%g\t%g\t%s\n" % (distances[i], energies[i], outcar_files[i]))
+            e_file.write("%g\t%.8g\t%s\n" % (distances[i], energies[i], outcar_files[i]))
         if debugging:
             end = timer(); etime = end - start
             print ('Parsing OUTCARs: ', etime)
@@ -1270,6 +1297,7 @@ def save_F_curves ():
             force_file.write( str(x[i]) + "\t" + str(y[i]) + "\n")
         force_file.close()
 
+    # Why  plotting in a saving function? TODO: remove
     ax3.legend(loc='lower right', ncol=2, numpoints=5)
     plt.draw()
 
