@@ -79,6 +79,7 @@ autosave       = True
 force_initial  = False
 overlapsurface = False
 debugging      = False
+include_retractions = True
 
 #      GP  Description
 #      1   On As atom 1sst layer
@@ -254,12 +255,8 @@ def calculate_distance (coordinates, at_1, at_2 ):
         idx = coordinates[i][0]
         if idx == at_1:
             coord_at_1 = coordinates[i][1]
-            # KKKKK
-            print ("coord_at_1   ", coord_at_1)
         if idx == at_2:
             coord_at_2 = coordinates[i][1]
-            # KKKKK
-            print ("coord_at_2   ", coord_at_2)
     distance = abs(float(coord_at_1[2]) - float(coord_at_2[2]))
     # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
     # surface_length: surface dependent. Length of the surface in its relaxed geometry
@@ -563,7 +560,7 @@ def natural_keys(text):
 def set_interval ():
     '''Set a E fitting interval between z_min and z_max'''
 
-        # Select points between height (z) interval
+    # Select points between height (z) interval
     global dist_interval
     global ener_interval
     global outcar_interval
@@ -788,6 +785,9 @@ def read_input(filename='inp.afm'):
         elif 'save_graphs' in line:
             global save_graphs
             save_graphs = string_to_bool(line.split()[1])
+        elif 'include_retractions' in line:
+            global include_retractions
+            include_retractions = string_to_bool(line.split()[1])
         elif 'only_forces' in line:
             global only_forces
             only_forces = string_to_bool(line.split()[1])
@@ -918,7 +918,7 @@ for directory in dir_list:
 
 
     # Get the data in the dir and skip if nothing found
-    dirlist = os.listdir('.') 
+    dirlist = os.listdir('.')
     if not outdatfile in  dirlist:
         outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
         if not outcar_files:
@@ -935,7 +935,7 @@ for directory in dir_list:
         energies  = data['Energy']
         outcar_files = data['Filename']
         using_dat_file=True
-        if debugging: 
+        if debugging:
             end = timer();  etime = end - start
             print ('Data find found: ', etime)
     # If not E vs Z data file found,then parse the OUTCARs
@@ -1030,6 +1030,7 @@ for directory in dir_list:
     # Fit the E(z) to a spline and compute its first derivative
     # Note that force will be a spline
     force_method="spline"
+
     calc_force (dist_interval, ener_interval, force_method)
     if debugging:
         end = timer(); etime = end - start
@@ -1147,6 +1148,130 @@ for directory in dir_list:
     # Once fitting parameters have been adjusted, store the delta_w curve at each grid point 
     addCurveToGridPoint(grid_point, h, delta_w)
     addForcesToGridPoint(grid_point, dist_interval, force_spl(dist_interval))
+
+    # Save the force curve inside the grid_point_X folder
+    f_file=open('force_vs_z.dat','w')
+    f_file.write ("# Distance    Force (eV/Ang)\n")
+    for i in range(len(dist_interval)):
+        # Get the corresponding OUTCAR file
+        idx=1
+        for j in range(len(distances)):
+            if dist_interval[i] == distances[j]:
+                idx=j
+                break
+        # print (outcar_files[idx])
+        f_file.write("%g\t\t%.8g\t\t%s\n" % (dist_interval[i], -force_spl(dist_interval[i]), outcar_files[idx]))
+    f_file.close()
+
+    # -----------------------------------
+    # Work on the retraction ret_ folders
+    # -----------------------------------
+    if include_retractions: dir_ret_list= [d for d in os.listdir('.') if re.match(r'ret_[0-9]+', d)]
+    if not dir_ret_list:
+        print ("No retractions found")
+    else:
+        for dir_ret in dir_ret_list:
+            os.chdir(dir_ret)
+            print ("I'm in ret_ directory:" + dir_ret)
+            dirlist = os.listdir('.')
+            # Check for the already extracted data to avoid parsing again the OUTCARS
+            # NOTE: Disntances will not be updated if we changes tip_lenght 
+            if outdatfile in dirlist:
+                print (outdatfile + " found in " + directory )
+                data=np.genfromtxt(outdatfile, dtype=None, names=True)
+                distances_ret = data['Distance']
+                energies_ret = data['Energy']
+                outcar_files = data['Filename']
+                using_dat_file=True
+            # If not E vs Z data file found,then parse the OUTCARs
+            else: 
+                # Get the list of OUTCAR files
+                outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
+                # Sort the list in a human readable style
+                outcar_files.sort(key=natural_keys)
+                # Get the list of POSCAR files
+                poscar_files = [f for f in dirlist if re.match(r'POSCAR.[0-9]+', f)]
+                # Sort the list in a human readable style
+                poscar_files.sort(key=natural_keys)
+
+                ##### KKKKKKK ######
+                print ("Retractions:")
+                print (outcar_files)
+                #^^^^^KKKKKKK ^^^^^#
+                energies_ret = []
+                idx_en=0
+                for outcar in outcar_files:
+                    idx_en=idx_en+1
+                    # Energy when sigma -> 0
+                    cmd = "grep 'energy  w' " + outcar +  " | tail -n 1 | awk '{print $7}'"
+                    energy=subprocess.check_output(cmd,shell=True)
+                    #energies.append([idx, float(energy.split()[0])])
+                    energies_ret.append(float(energy.split()[0]))
+                    read_outcar(outcar)
+                    # read_outcar function generates the temp.xyz file by calling another fucntion
+                    #   write_geom_and_forces ()
+                    os.rename('temp.xyz', 'Tip-surface_forces.xyz')
+
+                distances_ret = []
+                idx_d=0
+                for poscar in poscar_files:
+                    idx_d=idx_d+1
+                    # coordinates: : [ idx, ( x y z) ]
+                    # constraints: : [ idx, ( T T T) ]
+                    coordinates, constraints = read_poscar(poscar)
+                    distance = calculate_distance(coordinates, atom_tip, atom_surf)
+                    distances_ret.append(distance)
+
+                # Checking consistency on number of files
+                if idx_en != idx_d:
+                    print "Number of OUTCARS: ", idx_en
+                    print "Number of POSCARs/CONTCARs: ", idx_d
+                    error_critical ("RETRACTIONS: Number of OUTCARs and CONTCARs/POSCARs does not match")
+
+                # Save E vs z data in a file (to avoid parsing over and over again OUTCAR files)
+                e_file=open(outdatfile,'w')
+                e_file.write ("Distance      Energy    Filename\n")
+                for i in range(len(distances_ret)):
+                    e_file.write("%g\t%.8g\t%s\n" % (distances_ret[i], energies_ret[i], outcar_files[i]))
+                e_file.close()
+            max_ener = max(energies_ret)
+            for i in range(0,len(energies_ret)):
+                energies_ret[i] = energies_ret[i] - max_ener
+            if distances_ret[0] > distances_ret[-1]:
+                distances_ret = distances_ret[::-1]
+                energies_ret = energies_ret[::-1]
+                outcar_files=outcar_files[::-1]
+                # if not using_dat_file:
+                #    poscar_files=poscar_files[::-1]
+                poscar_files=poscar_files[::-1]
+
+            dist_interval = []
+            ener_interval = []
+            outcar_interval = []
+            force_spl = None
+            e_fit_spl = None
+            f_interp = None
+
+            # set_interval()
+            dist_interval = distances_ret
+            ener_interval = energies_ret
+            force_method="spline"
+            calc_force (dist_interval, ener_interval, force_method)
+
+            # Save the force curve inside the grid_point_X folder
+            f_file=open('force_vs_z.dat','w')
+            f_file.write ("# Distance    Force (eV/Ang)\n")
+            for i in range(len(dist_interval)):
+                # Get the corresponding OUTCAR file
+                idx=1
+                for j in range(len(distances_ret)):
+                    if dist_interval[i] == distances_ret[j]:
+                        idx=j
+                        break
+                # print (outcar_files[idx])
+                f_file.write("%g\t\t%.8g\t\t%s\n" % (dist_interval[i], -force_spl(dist_interval[i]), outcar_files[idx]))
+            f_file.close()
+            os.chdir("..")
 
     os.chdir("..")
 

@@ -1,0 +1,14 @@
+smoothing 0.00001
+z_min 1
+tip_length 6.0
+grid_points 1 2 3 4 5 6 7 8 9 10
+show_graphs no
+save_graphs no
+show_afmimage no
+save_afmimage no
+only_forces no
+save_forces yes
+force_initial yes
+do_full_image no
+autosave no
+outdatfile EvsZ.dat
