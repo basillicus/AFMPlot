@@ -78,5 +78,8 @@ Optional keywords
   z_min, z_max, and smoothing values even when an existing autosaved file
   exist. But fitting values will be saved at the end if autosaved is True
 
+- include_retractions <bool> (default = True) :: The script will look for ret_
+  folders in each grid_point_X folder and will extract the energies and
+  calculate the forces at each retraction
 
 NOTE: Booleans can be given as [(True, yes, 1...) | (False, no, 0...)]
