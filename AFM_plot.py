@@ -261,7 +261,7 @@ def calculate_distance (coordinates, at_1, at_2 ):
     # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
     # surface_length: surface dependent. Length of the surface in its relaxed geometry
     # tip_length = 6.0       # Defined globally above
-    surface_length= 10.2 # TODO: Create an input keyword for this
+    surface_length= 8.2 # TODO: Create an input keyword for this
     distance = distance - tip_length - surface_length
     return distance
 
@@ -972,7 +972,11 @@ for directory in dir_list:
         if idx_en != idx_d:
             print "Number of OUTCARS: ", idx_en
             print "Number of POSCARs/CONTCARs: ", idx_d
-            error_critical ("Number of OUTCARs and CONTCARs/POSCARs does not match")
+            # error_critical ("Number of OUTCARs and CONTCARs/POSCARs does not match")
+            print ("Number of OUTCARs and CONTCARs/POSCARs does not match")
+            print ("If there is retractions here you may want to come here later")
+            os.chdir("..")
+            continue
 
         os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
@@ -1030,6 +1034,7 @@ for directory in dir_list:
     # Fit the E(z) to a spline and compute its first derivative
     # Note that force will be a spline
     force_method="spline"
+    force_method="num2"
 
     calc_force (dist_interval, ener_interval, force_method)
     if debugging:
@@ -1194,10 +1199,6 @@ for directory in dir_list:
                 # Sort the list in a human readable style
                 poscar_files.sort(key=natural_keys)
 
-                ##### KKKKKKK ######
-                print ("Retractions:")
-                print (outcar_files)
-                #^^^^^KKKKKKK ^^^^^#
                 energies_ret = []
                 idx_en=0
                 for outcar in outcar_files:
@@ -1226,7 +1227,11 @@ for directory in dir_list:
                 if idx_en != idx_d:
                     print "Number of OUTCARS: ", idx_en
                     print "Number of POSCARs/CONTCARs: ", idx_d
-                    error_critical ("RETRACTIONS: Number of OUTCARs and CONTCARs/POSCARs does not match")
+                    #error_critical ("RETRACTIONS: Number of OUTCARs and CONTCARs/POSCARs does not match")
+                    print ("Number of OUTCARs and CONTCARs/POSCARs does not match")
+                    print (" you may want to come here later")
+                    os.chdir("..")
+                    continue
 
                 # Save E vs z data in a file (to avoid parsing over and over again OUTCAR files)
                 e_file=open(outdatfile,'w')
