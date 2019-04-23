@@ -251,16 +251,32 @@ def calculate_distance (coordinates, at_1, at_2 ):
 #  ///////// |l_surf  |
 #  ///////// |        |_,> z_surf
 
-    for i in range (0, len(coordinates)):
-        idx = coordinates[i][0]
-        if idx == at_1:
-            coord_at_1 = coordinates[i][1]
-        if idx == at_2:
-            coord_at_2 = coordinates[i][1]
-    distance = abs(float(coord_at_1[2]) - float(coord_at_2[2]))
-    # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
-    # surface_length: surface dependent. Length of the surface in its relaxed geometry
-    # tip_length = 6.0       # Defined globally above
+    min_z=1000.0
+    max_z=-1000.0
+    for d in coordinates:
+        z = float(d[1][2])
+        if z > maz_z:
+            max_z = z
+        if z < min_z:
+            min_z = z
+    distance = abs(max_z - min_z)
+
+    # for i in range (0, len(coordinates)):
+    #     idx = coordinates[i][0]
+    #     if idx == at_1:
+    #         coord_at_1 = coordinates[i][1]
+    #     if idx == at_2:
+    #         coord_at_2 = coordinates[i][1]
+
+
+    # # min_z = coordinates[0][1]
+    # # max_z = coordinates[0][1]
+    # # for i in range (0, len(coordinates)):
+    # distance = abs(float(coord_at_1[2]) - float(coord_at_2[2]))
+    # # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
+    # # surface_length: surface dependent. Length of the surface in its relaxed geometry
+    # # tip_length = 6.0       # Defined globally above
+
     surface_length= 8.2 # TODO: Create an input keyword for this
     distance = distance - tip_length - surface_length
     return distance
@@ -903,6 +919,7 @@ for directory in dir_list:
 
     if debugging: start = timer()
     os.chdir(directory)
+    print ("Directory: " + directory )
     grid_point = get_grid_point()
     if debugging:
         end = timer(); etime = end - start
@@ -1034,7 +1051,7 @@ for directory in dir_list:
     # Fit the E(z) to a spline and compute its first derivative
     # Note that force will be a spline
     force_method="spline"
-    force_method="num2"
+    #force_method="num2"
 
     calc_force (dist_interval, ener_interval, force_method)
     if debugging:
@@ -1182,7 +1199,7 @@ for directory in dir_list:
             # Check for the already extracted data to avoid parsing again the OUTCARS
             # NOTE: Disntances will not be updated if we changes tip_lenght 
             if outdatfile in dirlist:
-                print (outdatfile + " found in " + directory )
+                print (outdatfile + " found in " + dir_ret )
                 data=np.genfromtxt(outdatfile, dtype=None, names=True)
                 distances_ret = data['Distance']
                 energies_ret = data['Energy']
@@ -1218,7 +1235,6 @@ for directory in dir_list:
                 for poscar in poscar_files:
                     idx_d=idx_d+1
                     # coordinates: : [ idx, ( x y z) ]
-                    # constraints: : [ idx, ( T T T) ]
                     coordinates, constraints = read_poscar(poscar)
                     distance = calculate_distance(coordinates, atom_tip, atom_surf)
                     distances_ret.append(distance)
@@ -1246,9 +1262,9 @@ for directory in dir_list:
                 distances_ret = distances_ret[::-1]
                 energies_ret = energies_ret[::-1]
                 outcar_files=outcar_files[::-1]
-                # if not using_dat_file:
-                #    poscar_files=poscar_files[::-1]
-                poscar_files=poscar_files[::-1]
+                if not using_dat_file:
+                   poscar_files=poscar_files[::-1]
+                # poscar_files=poscar_files[::-1]
 
             dist_interval = []
             ener_interval = []
