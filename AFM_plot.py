@@ -53,7 +53,10 @@ w_0 = 25000         # Natural resonance frequency of the cantilever  Times 2pi (
 k   = 1800*0.0624   # Spring constant (eV/ang**2)
 omega_exp = -5
 
+# Tip_length: Tip dependent. Length of the tip in its relaxed geometry
 tip_length = 6.0
+# surface_length: surface dependent. Length of the surface in its relaxed geometry
+surface_length = 8.2 
 
 # w_0 = 23000   # Natural resonance frequency of the cantilever (in Hz) (f in reality)
 #w_0  = 25000/(2*np.pi)   # Natural resonance frequency of the cantilever  Times 2pi (in Hz)
@@ -79,6 +82,7 @@ autosave       = True
 force_initial  = False
 overlapsurface = False
 debugging      = False
+overwrite      = True
 include_retractions = True
 
 #      GP  Description
@@ -255,7 +259,7 @@ def calculate_distance (coordinates, at_1, at_2 ):
     max_z=-1000.0
     for d in coordinates:
         z = float(d[1][2])
-        if z > maz_z:
+        if z > max_z:
             max_z = z
         if z < min_z:
             min_z = z
@@ -273,11 +277,7 @@ def calculate_distance (coordinates, at_1, at_2 ):
     # # max_z = coordinates[0][1]
     # # for i in range (0, len(coordinates)):
     # distance = abs(float(coord_at_1[2]) - float(coord_at_2[2]))
-    # # Tip_length: Tip dependent. Length of the tip in its relaxed geometry
-    # # surface_length: surface dependent. Length of the surface in its relaxed geometry
-    # # tip_length = 6.0       # Defined globally above
 
-    surface_length= 8.2 # TODO: Create an input keyword for this
     distance = distance - tip_length - surface_length
     return distance
 
@@ -771,6 +771,9 @@ def read_input(filename='inp.afm'):
         elif 'tip_length' in line:
             global tip_length
             tip_length = float(line.split()[1])
+        elif 'surface_length' in line:
+            global surface_length
+            surface_length = float(line.split()[1])
         elif 'datfile' in line:
             global outdatfile
             outdatfile = str(line.split()[1])
@@ -936,7 +939,7 @@ for directory in dir_list:
 
     # Get the data in the dir and skip if nothing found
     dirlist = os.listdir('.')
-    if not outdatfile in  dirlist:
+    if not outdatfile in  dirlist or overwrite:
         outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
         if not outcar_files:
             print ("WARNING: No data available in grid point: " + grid_point)
@@ -945,7 +948,7 @@ for directory in dir_list:
 
     if debugging: start = timer()
     # Look for E vs Z dat file in the current dir
-    if outdatfile in dirlist:
+    if outdatfile in dirlist and not overwrite:
         print (outdatfile + " found in " + directory )
         data=np.genfromtxt(outdatfile, dtype=None, names=True)
         distances = data['Distance']
@@ -1051,7 +1054,6 @@ for directory in dir_list:
     # Fit the E(z) to a spline and compute its first derivative
     # Note that force will be a spline
     force_method="spline"
-    #force_method="num2"
 
     calc_force (dist_interval, ener_interval, force_method)
     if debugging:
@@ -1198,7 +1200,7 @@ for directory in dir_list:
             dirlist = os.listdir('.')
             # Check for the already extracted data to avoid parsing again the OUTCARS
             # NOTE: Disntances will not be updated if we changes tip_lenght 
-            if outdatfile in dirlist:
+            if outdatfile in dirlist and not overwrite:
                 print (outdatfile + " found in " + dir_ret )
                 data=np.genfromtxt(outdatfile, dtype=None, names=True)
                 distances_ret = data['Distance']
@@ -1228,7 +1230,7 @@ for directory in dir_list:
                     read_outcar(outcar)
                     # read_outcar function generates the temp.xyz file by calling another fucntion
                     #   write_geom_and_forces ()
-                    os.rename('temp.xyz', 'Tip-surface_forces.xyz')
+                os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
                 distances_ret = []
                 idx_d=0
