@@ -591,9 +591,16 @@ def set_interval ():
     outc = []
     for i,z in enumerate(distances):
         if z >= z_min and z<= z_max:
-            dist.append(distances[i])
-            ener.append(energies[i])
-            outc.append(outcar_files[i])
+            # dist.append(distances[i])
+            # ener.append(energies[i])
+            # outc.append(outcar_files[i])
+
+            # distance
+            dist.append(spectroscopy[i][0])
+            # energy
+            ener.append(spectroscopy[i][1])
+            # Outcar file
+            outc.append(spectroscopy[i][2])
     dist_interval = dist
     ener_interval = ener
     outcar_interval = outc
@@ -943,7 +950,8 @@ for directory in dir_list:
     # Get the data in the dir and skip if nothing found
     dirlist = os.listdir('.')
     if not outdatfile in  dirlist or overwrite:
-        outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
+        # find OUTCAR.(-)XX  files
+        outcar_files = [f for f in dirlist if re.match(r'OUTCAR.-?[0-9]+', f)]
         if not outcar_files:
             print ("WARNING: No data available in grid point: " + grid_point)
             os.chdir("..")
@@ -957,6 +965,11 @@ for directory in dir_list:
         distances = data['Distance']
         energies  = data['Energy']
         outcar_files = data['Filename']
+
+        spectroscopy = []
+        for i in range(len(distances)):
+            spectroscopy.append(distances[i], energies[i], outcar_files[i])
+
         using_dat_file=True
         if debugging:
             end = timer();  etime = end - start
@@ -965,8 +978,8 @@ for directory in dir_list:
     else:
         # Sort the list in a human readable style
         outcar_files.sort(key=natural_keys)
-        # Get the list of files
-        poscar_files = [f for f in dirlist if re.match(r'POSCAR.[0-9]+', f)]
+        # Get the list of  POSCAR.(-)XX  files
+        poscar_files = [f for f in dirlist if re.match(r'POSCAR.-?[0-9]+', f)]
         # Sort the list in a human readable style
         poscar_files.sort(key=natural_keys)
 
@@ -1003,11 +1016,18 @@ for directory in dir_list:
 
         os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
+        spectroscopy = []
+        for i in range(len(distances)):
+            spectroscopy.append((distances[i], energies[i], outcar_files[i]))
+        # Sort the spectroscopie by tip-surface distance
+        spectroscopy = sorted(spectroscopy, key=lambda x: float(x[0]))
+
         # Save E vs z data in a file (to avoid parsing over and over again OUTCAR files)
         e_file=open(outdatfile,'w')
         e_file.write ("Distance      Energy    Filename\n")
         for i in range(len(distances)):
-            e_file.write("%g\t%.8g\t%s\n" % (distances[i], energies[i], outcar_files[i]))
+            # e_file.write("%g\t%.8g\t%s\n" % (distances[i], energies[i], outcar_files[i]))
+            e_file.write("%g\t%.8g\t%s\n" % (spectroscopy[i][0], spectroscopy[i][1], spectroscopy[i][2]))
         if debugging:
             end = timer(); etime = end - start
             print ('Parsing OUTCARs: ', etime)
@@ -1018,26 +1038,31 @@ for directory in dir_list:
     title=tip_name + "Grid point: "+ str(grid_point)
     print ("ZMIN: ", z_min)
 
-    if debugging: start = timer()
-    # Displacing energies up to 0
-    max_ener = max(energies)
-    for i in range(0,len(energies)):
-        energies[i] = energies[i] - max_ener
-    if debugging:
-        end = timer(); etime = end - start
-        print ('Displacing Energies: ', etime)
+    # PPPPP  ++++++++++++
+    # if debugging: start = timer()
+    # # Displacing energies up to 0
+    # max_ener = max(energies)
+    # for i in range(len(energies)):
+    #     energies[i] = energies[i] - max_ener
+    # if debugging:
+    #     end = timer(); etime = end - start
+    #     print ('Displacing Energies: ', etime)
+    # if debugging: start = timer()
+    # PPPPP  -----------
 
-    if debugging: start = timer()
-    # Sorting the points from shorter to longer distances
-    if distances[0] > distances[-1]:
-        distances = distances[::-1]
-        energies = energies[::-1]
-        outcar_files=outcar_files[::-1]
-        if not using_dat_file:
-            poscar_files=poscar_files[::-1]
-    if debugging:
-        end = timer(); etime = end - start
-        print ('Reordering points: ', etime)
+    #  # PPPPP  ++++++++++++
+    #  if debugging: start = timer()
+    #  # Sorting the points from shorter to longer distances
+    #  if distances[0] > distances[-1]:
+    #      distances = distances[::-1]
+    #      energies = energies[::-1]
+    #      outcar_files=outcar_files[::-1]
+    #      if not using_dat_file:
+    #          poscar_files=poscar_files[::-1]
+    #  if debugging:
+    #      end = timer(); etime = end - start
+    #      print ('Reordering points: ', etime)
+    #  # PPPPP  -----------
 
     dist_interval = []
     ener_interval = []
@@ -1193,7 +1218,12 @@ for directory in dir_list:
     # -----------------------------------
     # Work on the retraction ret_ folders
     # -----------------------------------
-    if include_retractions: dir_ret_list= [d for d in os.listdir('.') if re.match(r'ret_[0-9]+', d)]
+    if include_retractions:
+        dir_ret_list= [d for d in os.listdir('.') if re.match(r'ret_[0-9]+', d)]
+    else:
+        os.chdir("..")
+        continue
+
     if not dir_ret_list:
         print ("No retractions found")
     else:
