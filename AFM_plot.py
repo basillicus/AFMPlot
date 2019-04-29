@@ -82,7 +82,7 @@ autosave       = True
 force_initial  = False
 overlapsurface = False
 debugging      = False
-overwrite      = True
+overwrite      = False
 include_retractions = True
 
 #      GP  Description
@@ -825,6 +825,9 @@ def read_input(filename='inp.afm'):
         elif 'force_initial' in line:
             global force_initial
             force_initial = string_to_bool(line.split()[1])
+        elif 'overwrite' in line:
+            global overwrite
+            overwrite = string_to_bool(line.split()[1])
         else:
             print ("Warning! Keyword "+ line + " not recognized")
 
@@ -1211,6 +1214,10 @@ for directory in dir_list:
             else: 
                 # Get the list of OUTCAR files
                 outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
+                if not outcar_files:
+                    print ("WARNING: No data available in grid point: " + dir_ret)
+                    os.chdir("..")
+                    continue
                 # Sort the list in a human readable style
                 outcar_files.sort(key=natural_keys)
                 # Get the list of POSCAR files
