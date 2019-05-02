@@ -968,9 +968,16 @@ for directory in dir_list:
 
         spectroscopy = []
         for i in range(len(distances)):
-            spectroscopy.append(distances[i], energies[i], outcar_files[i])
+            spectroscopy.append((distances[i], energies[i], outcar_files[i]))
+
+        # write the geometry files with forces once OUTCAR has been sorted by distance
+        for i in range(len(spectroscopy)):
+            print (spectroscopy[i][0], spectroscopy[i][2])
+            read_outcar(spectroscopy[i][2])
+        os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
         using_dat_file=True
+
         if debugging:
             end = timer();  etime = end - start
             print ('Data find found: ', etime)
@@ -1000,8 +1007,8 @@ for directory in dir_list:
             coordinates, constraints = read_poscar(poscar)
             distance = calculate_distance(coordinates, atom_tip, atom_surf)
             #distances.append([idx, distance])
-            vertical_force = sum_forces (outcar_files[idx_d-1], constraints)
-            vertical_forces.append(vertical_force)
+            # vertical_force = sum_forces (outcar_files[idx_d-1], constraints)
+            # vertical_forces.append(vertical_force)
             distances.append(distance)
 
         # Checking consistency on number of files
@@ -1014,13 +1021,16 @@ for directory in dir_list:
             os.chdir("..")
             continue
 
-        os.rename('temp.xyz', 'Tip-surface_forces.xyz')
-
         spectroscopy = []
         for i in range(len(distances)):
             spectroscopy.append((distances[i], energies[i], outcar_files[i]))
         # Sort the spectroscopie by tip-surface distance
         spectroscopy = sorted(spectroscopy, key=lambda x: float(x[0]))
+
+        # write the geometry files with forces once OUTCAR has been sorted by distance
+        for i in range(len(spectroscopy)):
+            read_outcar(spectroscopy[i][2])
+        os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
         # Save E vs z data in a file (to avoid parsing over and over again OUTCAR files)
         e_file=open(outdatfile,'w')
@@ -1048,7 +1058,7 @@ for directory in dir_list:
     #     end = timer(); etime = end - start
     #     print ('Displacing Energies: ', etime)
     # if debugging: start = timer()
-    # PPPPP  -----------
+    # PPPPP  -----------)
 
     #  # PPPPP  ++++++++++++
     #  if debugging: start = timer()
@@ -1239,11 +1249,22 @@ for directory in dir_list:
                 distances_ret = data['Distance']
                 energies_ret = data['Energy']
                 outcar_files = data['Filename']
+
+                spectroscopy_ret = []
+                for i in range(len(distances_ret)):
+                    spectroscopy_ret.append((distances_ret[i], energies_ret[i], outcar_files[i]))
+
+                # write the geometry files with forces once OUTCAR has been sorted by distance
+                for i in range(len(spectroscopy_ret)):
+                    read_outcar(spectroscopy_ret[i][2])
+                os.rename('temp.xyz', 'Tip-surface_forces.xyz')
+
                 using_dat_file=True
+
             # If not E vs Z data file found,then parse the OUTCARs
             else: 
                 # Get the list of OUTCAR files
-                outcar_files = [f for f in dirlist if re.match(r'OUTCAR.[0-9]+', f)]
+                outcar_files = [f for f in dirlist if re.match(r'OUTCAR.-?[0-9]+', f)]
                 if not outcar_files:
                     print ("WARNING: No data available in grid point: " + dir_ret)
                     os.chdir("..")
@@ -1251,7 +1272,7 @@ for directory in dir_list:
                 # Sort the list in a human readable style
                 outcar_files.sort(key=natural_keys)
                 # Get the list of POSCAR files
-                poscar_files = [f for f in dirlist if re.match(r'POSCAR.[0-9]+', f)]
+                poscar_files = [f for f in dirlist if re.match(r'POSCAR.-?[0-9]+', f)]
                 # Sort the list in a human readable style
                 poscar_files.sort(key=natural_keys)
 
@@ -1264,10 +1285,9 @@ for directory in dir_list:
                     energy=subprocess.check_output(cmd,shell=True)
                     #energies.append([idx, float(energy.split()[0])])
                     energies_ret.append(float(energy.split()[0]))
-                    read_outcar(outcar)
+                    # read_outcar(outcar)
                     # read_outcar function generates the temp.xyz file by calling another fucntion
                     #   write_geom_and_forces ()
-                os.rename('temp.xyz', 'Tip-surface_forces.xyz')
 
                 distances_ret = []
                 idx_d=0
@@ -1288,22 +1308,38 @@ for directory in dir_list:
                     os.chdir("..")
                     continue
 
+                spectroscopy_ret = []
+                for i in range(len(distances_ret)):
+                    # spectroscopy_ret [(distances, energies, outcar_files)]
+                    spectroscopy_ret.append((distances_ret[i], energies_ret[i], outcar_files[i]))
+                # Sort the spectroscopie by tip-surface distance
+                spectroscopy_ret = sorted(spectroscopy_ret, key=lambda x: float(x[0]))
+
+                # write the geometry files with forces once OUTCAR has been sorted by distance
+                for i in range(len(spectroscopy_ret)):
+                    read_outcar(spectroscopy_ret[i][2])
+                os.rename('temp.xyz', 'Tip-surface_forces.xyz')
+
                 # Save E vs z data in a file (to avoid parsing over and over again OUTCAR files)
                 e_file=open(outdatfile,'w')
                 e_file.write ("Distance      Energy    Filename\n")
                 for i in range(len(distances_ret)):
-                    e_file.write("%g\t%.8g\t%s\n" % (distances_ret[i], energies_ret[i], outcar_files[i]))
+                    # e_file.write("%g\t%.8g\t%s\n" % (distances_ret[i], energies_ret[i], outcar_files[i]))
+                    e_file.write("%g\t%.8g\t%s\n" % (spectroscopy_ret[i][0], spectroscopy_ret[i][1], spectroscopy_ret[i][2]))
                 e_file.close()
-            max_ener = max(energies_ret)
-            for i in range(0,len(energies_ret)):
-                energies_ret[i] = energies_ret[i] - max_ener
-            if distances_ret[0] > distances_ret[-1]:
-                distances_ret = distances_ret[::-1]
-                energies_ret = energies_ret[::-1]
-                outcar_files=outcar_files[::-1]
-                if not using_dat_file:
-                   poscar_files=poscar_files[::-1]
-                # poscar_files=poscar_files[::-1]
+
+            # # PPPPP  ++++++++++++
+            # max_ener = max(energies_ret)
+            # for i in range(0,len(energies_ret)):
+            #     energies_ret[i] = energies_ret[i] - max_ener
+            # if distances_ret[0] > distances_ret[-1]:
+            #     distances_ret = distances_ret[::-1]
+            #     energies_ret = energies_ret[::-1]
+            #     outcar_files=outcar_files[::-1]
+            #     if not using_dat_file:
+            #        poscar_files=poscar_files[::-1]
+            #     # poscar_files=poscar_files[::-1]
+            # PPPPP  -----------
 
             dist_interval = []
             ener_interval = []
@@ -1313,8 +1349,12 @@ for directory in dir_list:
             f_interp = None
 
             # set_interval()
-            dist_interval = distances_ret
-            ener_interval = energies_ret
+            # dist_interval = distances_ret
+            # ener_interval = energies_ret
+            for i in range(len(spectroscopy_ret)):
+                dist_interval.append(spectroscopy_ret[i][0])
+                ener_interval.append(spectroscopy_ret[i][1])
+
             force_method="spline"
             calc_force (dist_interval, ener_interval, force_method)
 
