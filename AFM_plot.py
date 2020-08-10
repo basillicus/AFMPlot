@@ -243,17 +243,17 @@ def error_critical (msg = "Unknown critical error"):
 
 
 def calculate_distance (coordinates, at_1, at_2 ):
-#    ------  |        |--> z_tip    |
-#    \    /  |l_tip   |             |
-#     \  /   |        |             |
-#      \/    |        |             |
-#    |                | h           | z = (z_tip - z_surf) - l
-#    |                |             |     '------.-------'
-#  z |                |             |            h
-#    |                |             |
-#  __|______          |             |
-#  ///////// |l_surf  |
-#  ///////// |        |_,> z_surf
+    #    ------  |        |--> z_tip    |
+    #    \    /  |l_tip   |             |
+    #     \  /   |        |             |
+    #      \/    |        |             |
+    #    |                | h           | z = (z_tip - z_surf) - l
+    #    |                |             |     '------.-------'
+    #  z |                |             |            h
+    #    |                |             |
+    #  __|______          |             |
+    #  ///////// |l_surf  |
+    #  ///////// |        |_,> z_surf
 
     min_z=1000.0
     max_z=-1000.0
@@ -272,7 +272,6 @@ def calculate_distance (coordinates, at_1, at_2 ):
     #     if idx == at_2:
     #         coord_at_2 = coordinates[i][1]
 
-
     # # min_z = coordinates[0][1]
     # # max_z = coordinates[0][1]
     # # for i in range (0, len(coordinates)):
@@ -282,8 +281,8 @@ def calculate_distance (coordinates, at_1, at_2 ):
     return distance
 
 
-def transform_coordiantes (cell, coordinates, acell = 1.0):
-    """ Transform coordinates from Direct to Cartesian """ 
+def transform_coordiantes(cell, coordinates, acell=1.0):
+    """ Transform coordinates from Direct to Cartesian """
 
     # Convert the values to numpy arrays
     cell = np.array(cell)
