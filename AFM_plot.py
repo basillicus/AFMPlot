@@ -223,11 +223,13 @@ def get_atom_index(kind):
         z = coordinates[0][1][2]
         for atom in coordinates:
             if kind == 'tip':
-                if atom[1][2] > float(z):
+                # if atom[1][2] > float(z):
+                if atom[1][2] > z:
                     atom_index = atom[0]
                     z = atom[1][2]
             else:
-                if atom[1][2] < float(z):
+                # if atom[1][2] < float(z):
+                if atom[1][2] < z:
                     atom_index = atom[0]
                     z = atom[1][2]
         # print (kind + " index: ", atom_index)
@@ -522,12 +524,12 @@ def read_outcar(filename = 'OUTCAR'):
             # images += [(atoms, forces)]
     # TODO: Check that the OUTCAR has converged
 
-    write_geom_and_forces (natoms, atoms, forces)
+    write_geom_and_forces(natoms, atoms, forces)
 
     return atoms, forces
 
 
-def write_geom_and_forces (natoms,atoms,forces):
+def write_geom_and_forces(natoms, atoms, forces):
 
     jmol_script = 'jmolscript: vectors on; vectors 2; set  vectorscale 2; set percentVdwAtom 30;  set bondradiusmilliangstroms 120;'
     fout = open('temp.xyz', 'a')
@@ -700,7 +702,7 @@ def integrate_forces():
 
         # # KKKK Temp file to write out the forces and read in into fortran code
         # fla = open('fla.dat_'+str(hh), 'w')
-        # fla.write('# xx    hh+Asin(phi)     f(h+Asin(phi))sin(phi)    phi  \n')
+        # fla.write('# xx    hh+sin(phi)     f(h+Asin(phi))sin(phi)    phi  \n')
         # for i, fi in enumerate(f):
         #     fla.write(str(xx[i]) + "\t" + str(hh + A*np.sin(phi[i])) + "\t" + str(fi) + "\t" + str(phi[i]) + '\n')
 
@@ -880,8 +882,8 @@ def get_Z_at_delta_w(omega, h, curve):
 
 if debugging: start = timer()
 # Get atom numbers to use in order to measure Z
-atom_tip  = get_atom_index ("tip")
-atom_surf = get_atom_index ("surface")
+atom_tip  = get_atom_index("tip")
+atom_surf = get_atom_index("surface")
 # atom_tip  = 204
 # atom_surf = 108
 
@@ -967,14 +969,15 @@ for directory in dir_list:
     # Look for E vs Z dat file in the current dir
     if outdatfile in dirlist and not overwrite:
         print(outdatfile + " found in " + directory )
+        #data = np.genfromtxt(outdatfile, dtype=None, names=True)
         data = np.genfromtxt(outdatfile, dtype=None, names=True)
         distances = data['Distance']
         energies  = data['Energy']
-        outcar_files = data['Filename']
+        outcar_files = data['Filename']  # genfrotxt imports as bytes instead of strings
 
         spectroscopy = []
         for i in range(len(distances)):
-            spectroscopy.append((distances[i], energies[i], outcar_files[i]))
+            spectroscopy.append((distances[i], energies[i], outcar_files[i].decode("utf-8")))
 
         # write the geometry files with forces once OUTCAR has been sorted by distance
         for i in range(len(spectroscopy)):
@@ -1442,11 +1445,11 @@ def plot_AFM_image ():
     ZT = Z.T
     # plt.set_cmap('Greys')
     plt.set_cmap('afmhot')
-    # ax2.imshow(ZT, aspect='auto', origin='lower', interpolation='gaussian', extent = ( x.min(), x.max(), y.min(), y.max()))
+    ax2.imshow(ZT, aspect='auto', origin='lower', interpolation='gaussian', extent = ( x.min(), x.max(), y.min(), y.max()))
     ax2.grid(False)
-    # ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='gaussian')
-    # ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='lanczos')
-    ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='bicubic')
+    #ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='gaussian')
+    #ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='lanczos')
+    #ax2.imshow(ZT, aspect='equal', origin='lower', interpolation='bicubic')
     if overlapsurface: overlap_surface()
     # ax2.imshow(ZT, aspect='auto', origin='lower',  extent = ( x.min(), x.max(), y.min(), y.max()))
     # fig.colorbar(im)
